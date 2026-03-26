@@ -1,0 +1,196 @@
+/**
+ * EMERGENCY_REDEPLOY_MYB.ts
+ * 
+ * Redeploys MYB token contract for My Business (CUST-000005)
+ * Company ID: 699c3f84f1834f4fe65cd16c
+ * 
+ * DEPLOYMENT STEPS:
+ * 1. Base44 → Functions → Create new temporary function
+ * 2. Paste this code
+ * 3. Run once
+ * 4. Delete function after success
+ */
+import { createClientFromRequest } from 'npm:@base44/sdk@0.8.21';
+import { ethers } from 'npm:ethers@6.13.0';
+
+Deno.serve(async (req) => {
+  if (req.method === 'OPTIONS') {
+    return new Response(null, { status: 204 });
+  }
+
+  try {
+    const base44 = createClientFromRequest(req);
+    
+    // Auth check
+    const user = await base44.auth.me();
+    if (!user) {
+      return Response.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    console.log('🚀 Starting MYB contract redeployment...');
+
+    // Company ID for My Business (CUST-000005)
+    const companyId = '699c3f84f1834f4fe65cd16c';
+    const network = 'fuji'; // Avalanche Fuji Testnet
+
+    // Fetch company
+    const companies = await base44.asServiceRole.entities.Company.filter({ id: companyId });
+    const company = companies[0];
+    
+    if (!company) {
+      return Response.json({ error: 'Company not found' }, { status: 404 });
+    }
+
+    console.log('✅ Company found:', company.name);
+
+    // Fetch existing token
+    const tokens = await base44.asServiceRole.entities.CompanyToken.filter({ company_id: companyId });
+    const existingToken = tokens.find(t => t.is_active !== false);
+
+    if (!existingToken) {
+      return Response.json({ error: 'No active token found' }, { status: 404 });
+    }
+
+    console.log('📋 Existing token:', {
+      symbol: existingToken.token_symbol,
+      old_contract: existingToken.contract_address,
+      chain: existingToken.chain
+    });
+
+    // RPC endpoint for Fuji
+    const rpcUrl = 'https://api.avax-test.network/ext/bc/C/rpc';
+    
+    // Get deployer private key from secrets
+    const deployerKey = Deno.env.get('GAS_WALLET_PRIVATE_KEY') || Deno.env.get('OWNER_PRIVATE_KEY');
+    
+    if (!deployerKey) {
+      return Response.json({ error: 'Deployer private key not found in secrets' }, { status: 500 });
+    }
+
+    // Connect to network
+    const provider = new ethers.JsonRpcProvider(rpcUrl);
+    const deployer = new ethers.Wallet(deployerKey, provider);
+    const deployerAddress = deployer.address;
+
+    console.log('🔑 Deployer address:', deployerAddress);
+
+    // Check deployer balance
+    const balance = await provider.getBalance(deployerAddress);
+    const balanceInAvax = ethers.formatEther(balance);
+    
+    console.log('💰 Deployer balance:', balanceInAvax, 'AVAX');
+
+    if (parseFloat(balanceInAvax) < 0.1) {
+      return Response.json({ 
+        error: 'Insufficient AVAX for deployment',
+        balance: balanceInAvax
+      }, { status: 500 });
+    }
+
+    // MooadonRewards contract bytecode (from your existing deployments)
+    const contractBytecode = '0x608060405234801561000f575f80fd5b506040516110c93803806110c983398101604081905261002e916101c5565b338383600361003d8382610297565b50600461004a8282610297565b5050506001600160a01b03811661007b57604051631e4fbdf760e01b81525f60048201526024015b60405180910390fd5b61008481610091565b5061009b836100e260201b60201c565b505050610367565b600580546001600160a01b038381166001600160a01b0319831681179093556040519116919082907f8be0079c531659141344cd1fd0a4f28419497f9722a3daafe3b4186f6b6457e0905f90a35050565b6001600160a01b03821661010b5760405163ec442f0560e01b81525f6004820152602401610072565b6101165f838361011a565b5050565b6001600160a01b03831661014457805f8082825461013891906102fb565b909155506101b49050565b6001600160a01b0383165f90815260208190526040902054818110156101965760405163391434e360e21b81526001600160a01b03851660048201526024810182905260448101839052606401610072565b6001600160a01b0384165f9081526020819052604090209082900390555b6001600160a01b0382166101d0575f80fd5b604080516001600160a01b038085168252831660208201527fdb80dd488acf86d17c747445b0eabb5d57c541d3bd7b6b87af987858e5066b2b910160405180910390a1505050565b634e487b7160e01b5f52604160045260245ffd5b5f805f6060848603121561023f575f80fd5b83516001600160401b0380821115610255575f80fd5b818601915086601f830112610268575f80fd5b81518181111561027a5761027a610212565b604051601f8201601f19908116603f011681019083821181831017156102a2576102a2610212565b816040528281528960208487010111156102ba575f80fd5b6102cb836020830160208801610344565b8097505050506020860151925060408601519150509250925092565b600181811c908216806102fa57607f821691505b60208210810361031857634e487b7160e01b5f52602260045260245ffd5b50919050565b601f82111561033f57805f5260205f20601f840160051c810160208510156103435750805b601f840160051c820191505b81811015610362575f8155600101610350565b505050565b505050565b81516001600160401b0381111561038557610385610212565b610399816103938454610348565b8461031e565b602080601f8311600181146103cc575f84156103b55750858301515b5f19600386901b1c1916600185901b1785556103e6565b5f85815260208120601f198616915b828110156103f4578886015182559484019460019091019084016103d5565b508582101561041157878501515f19600388901b60f8161c191681555b5050505050600190811b01905550565b61071c806104305f395ff3fe608060405234801561000f575f80fd5b5060043610610091575f3560e01c8063715018a611610064578063715018a6146100fc5780638da5cb5b1461010657806395d89b4114610120578063a9059cbb14610128578063dd62ed3e1461013b575f80fd5b806306fdde0314610095578063095ea7b3146100b357806318160ddd146100d657806370a08231146100e8575b5f80fd5b61009d61014e565b6040516100aa91906105a9565b60405180910390f35b6100c66100c13660046105ff565b6101de565b60405190151581526020016100aa565b6002545b6040519081526020016100aa565b6100da6100f6366004610627565b6101f7565b005b610104610215565b005b6005546040516001600160a01b0390911681526020016100aa565b61009d610228565b6100c66101363660046105ff565b610237565b6100da610149366004610648565b610244565b60606003805461015d90610679565b80601f016020809104026020016040519081016040528092919081815260200182805461018990610679565b80156101d45780601f106101ab576101008083540402835291602001916101d4565b820191905f5260205f20905b8154815290600101906020018083116101b757829003601f168201915b5050505050905090565b5f336101eb81858561026e565b60019150505b92915050565b61020261027b565b61020c8282610296565b5050565b61021d61027b565b6102265f6102ca565b565b60606004805461015d90610679565b5f336101eb81858561031b565b6001600160a01b039182165f90815260016020908152604080832093909416825291909152205490565b610107828260016103c4565b6005546001600160a01b031633146102265760405162461bcd60e51b81526004016102ad906106b1565b60405180910390fd5b6001600160a01b0382166102bf5760405163ec442f0560e01b81525f60048201526024016102ad565b61020c5f838361042c565b600580546001600160a01b038381166001600160a01b0319831681179093556040519116919082907f8be0079c531659141344cd1fd0a4f28419497f9722a3daafe3b4186f6b6457e0905f90a35050565b6001600160a01b038381165f908152600160209081526040808320938616835292905220545f19811461035757818110156103485760405163391434e360e21b81526001600160a01b038416600482015260248101829052604481018390526064016102ad565b610357848484840361042c565b50505050565b6001600160a01b03831661038657604051634b637e8f60e11b81525f60048201526024016102ad565b6001600160a01b0382166103af5760405163ec442f0560e01b81525f60048201526024016102ad565b6103ba83838361053f565b505050565b6001600160a01b0383166103ee578060025f8282546103de91906106e6565b909155506104409050565b6001600160a01b0383165f90815260208190526040902054818110156104225760405163391434e360e21b81526001600160a01b038516600482015260248101829052604481018390526064016102ad565b6001600160a01b0384165f9081526020819052604090209082900390555b6001600160a01b03821661045c5760028054829003905561047a565b6001600160a01b0382165f9081526020819052604090208054820190555b816001600160a01b0316836001600160a01b03167fddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef836040516104bf91815260200190565b60405180910390a3505050565b6001600160a01b0383166104f457604051634b637e8f60e11b81525f60048201526024016102ad565b6001600160a01b03821661051d5760405163ec442f0560e01b81525f60048201526024016102ad565b6001600160a01b038381165f8181526001602090815260408083209487168084529482529182902085905590518481527f8c5be1e5ebec7d5bd14f71427d1e84f3dd0314c0f7b2291e5b200ac8c7c3b925910160405180910390a3505050565b6001600160a01b03831661056957805f8082825461055d91906106e6565b9091555061059f9050565b6001600160a01b0383165f9081526020819052604090205481811015610581578060405163391434e360e21b81526004016102ad91906106f9565b6001600160a01b0384165f9081526020819052604090209082900390555b6001600160a01b038216610107575f80fd5b5f6020808352835180828501525f5b818110156105d4578581018301518582016040015282016105b8565b505f604082860101526040601f19601f8301168501019250505092915050565b80356001600160a01b0381168114610604575f80fd5b919050565b5f8060408385031215610610575f80fd5b610619836105ee565b946020939093013593505050565b5f60208284031215610637575f80fd5b610640826105ee565b9392505050565b5f8060408385031215610658575f80fd5b610661836105ee565b915061066f602084016105ee565b90509250929050565b600181811c9082168061068d57607f821691505b6020821081036106ab57634e487b7160e01b5f52602260045260245ffd5b50919050565b6020808252818101527f4f776e61626c653a2063616c6c6572206973206e6f7420746865206f776e6572604082015260600190565b808201808211156101f157634e487b7160e01b5f52601160045260245ffd5b5f6020828403121561070a575f80fd5b503591905056fea26469706673582212207f37e7bab8f66e8f11a4ec6c74da8e0c3bd9f8c4c0f67df37cb52bd9c9e5d14864736f6c63430008140033';
+
+    console.log('🚀 Deploying new MYB contract...');
+
+    // Contract factory
+    const factory = new ethers.ContractFactory(
+      [
+        'constructor(string memory name_, string memory symbol_, uint256 initialSupply_)',
+        'function name() view returns (string)',
+        'function symbol() view returns (string)',
+        'function totalSupply() view returns (uint256)',
+        'function balanceOf(address) view returns (uint256)',
+        'function transfer(address, uint256) returns (bool)',
+        'function owner() view returns (address)'
+      ],
+      contractBytecode,
+      deployer
+    );
+
+    // Deploy parameters
+    const tokenName = existingToken.token_name || 'My Business Token';
+    const tokenSymbol = existingToken.token_symbol || 'MYB';
+    const initialSupply = ethers.parseUnits('1000000', 18); // 1M tokens
+
+    console.log('📝 Deploy params:', { tokenName, tokenSymbol, initialSupply: '1000000' });
+
+    // Deploy contract
+    const contract = await factory.deploy(tokenName, tokenSymbol, initialSupply);
+    await contract.waitForDeployment();
+
+    const newContractAddress = await contract.getAddress();
+
+    console.log('✅ Contract deployed:', newContractAddress);
+
+    // Verify deployment
+    const deployedName = await contract.name();
+    const deployedSymbol = await contract.symbol();
+    const deployedSupply = await contract.totalSupply();
+    const ownerAddress = await contract.owner();
+
+    console.log('✅ Verification:', {
+      name: deployedName,
+      symbol: deployedSymbol,
+      supply: ethers.formatUnits(deployedSupply, 18),
+      owner: ownerAddress
+    });
+
+    // Update database
+    console.log('💾 Updating database...');
+
+    // Mark old token as inactive
+    await base44.asServiceRole.entities.CompanyToken.update(existingToken.id, {
+      is_active: false,
+      updated_date: new Date().toISOString()
+    });
+
+    // Create new token record
+    const newToken = await base44.asServiceRole.entities.CompanyToken.create({
+      company_id: companyId,
+      token_name: tokenName,
+      token_symbol: tokenSymbol,
+      contract_address: newContractAddress,
+      chain: 'avalanche_fuji',
+      treasury_wallet: deployerAddress,
+      is_active: true,
+      initial_supply: '1000000',
+      current_supply: '1000000',
+      created_date: new Date().toISOString()
+    });
+
+    console.log('✅ Database updated');
+
+    // Update company
+    await base44.asServiceRole.entities.Company.update(companyId, {
+      blockchain_wallet_address: deployerAddress,
+      onchain_network: 'fuji',
+      updated_date: new Date().toISOString()
+    });
+
+    console.log('✅ Company updated');
+
+    // Return success
+    return Response.json({
+      success: true,
+      message: 'MYB contract redeployed successfully',
+      old_contract: existingToken.contract_address,
+      new_contract: newContractAddress,
+      deployer: deployerAddress,
+      token_id: newToken.id,
+      snowtrace_url: `https://testnet.snowtrace.io/address/${newContractAddress}`,
+      verification: {
+        name: deployedName,
+        symbol: deployedSymbol,
+        supply: ethers.formatUnits(deployedSupply, 18),
+        owner: ownerAddress
+      }
+    });
+
+  } catch (error) {
+    console.error('❌ Deployment error:', error.message, error.stack);
+    return Response.json({ 
+      error: error.message,
+      stack: error.stack
+    }, { status: 500 });
+  }
+});

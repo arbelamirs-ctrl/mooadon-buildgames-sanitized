@@ -1,0 +1,62 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  * {
+    @apply border-slate-800;
+  }
+  
+  body {
+    @apply bg-[#17171f] text-white font-inter text-sm;
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    font-size: 14px;
+  }
+
+  :root {
+    --background: #17171f;
+    --foreground: #ffffff;
+    --card: #1f2128;
+    --card-foreground: #ffffff;
+    --popover: #1f2128;
+    --popover-foreground: #ffffff;
+    --primary: #10b981;
+    --primary-foreground: #ffffff;
+    --secondary: #1f2128;
+    --secondary-foreground: #ffffff;
+    --muted: #1f2128;
+    --muted-foreground: #9ca3af;
+    --accent: #10b981;
+    --accent-foreground: #ffffff;
+    --destructive: #ef4444;
+    --destructive-foreground: #ffffff;
+    --border: #2d2d3a;
+    --input: #1f2128;
+    --ring: #10b981;
+    --radius: 0.5rem;
+  }
+}
+
+@layer components {
+  .header-dark {
+    @apply bg-[#17171f];
+  }
+  
+  .button-primary {
+    @apply bg-[#10b981] hover:bg-[#059669];
+  }
+  
+  .card-dark {
+    @apply bg-[#1f2128] border border-[#2d2d3a] rounded-lg;
+  }
+  
+  .compact-card {
+    @apply p-3 space-y-2;
+  }
+  
+  .stat-card {
+    @apply bg-[#1f2128] border border-[#2d2d3a] rounded-lg p-3;
+  }
+}
